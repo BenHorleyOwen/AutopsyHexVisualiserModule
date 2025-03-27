@@ -10,16 +10,13 @@ import org.openide.util.lookup.ServiceProvider;
 //import org.sleuthkit.autopsy.contentviewers.utils.ViewerPriority;
 import org.sleuthkit.autopsy.corecomponentinterfaces.DataContentViewer;
 import org.sleuthkit.autopsy.corecomponents.DataContentViewerUtility;
-import org.sleuthkit.autopsy.datamodel.DataConversion;
 import org.sleuthkit.datamodel.AbstractFile;
 import org.sleuthkit.datamodel.Content;
 import java.io.File;
-import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import javax.swing.SwingWorker;
-import org.apache.commons.io.FileUtils;
-import org.openide.util.Exceptions;
 import org.sleuthkit.datamodel.TskCoreException;
+
 
 /**
  *
@@ -27,16 +24,13 @@ import org.sleuthkit.datamodel.TskCoreException;
  */
 @ServiceProvider(service = DataContentViewer.class)
 public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataContentViewerHex implements DataContentViewer{
-    private File pattern = null;//global variable to be set when doing a support check, i have no clue how else to access the node.
-    private boolean patternDone = false;//called when patternWorker is completed
     private static final long PAGE_LENGTH = 16384;
     private final byte[] data = new byte[(int) PAGE_LENGTH];
     private static int currentPage = 1;
     private int totalPages;
     private Content dataSource;
-
+    final private static char[] hexArray = "0123456789ABCDEF".toCharArray(); //NON-NLS
     private HexWorker worker;
-    private PatternWorker Pworker;
 //UI
         /**
      * Creates new form ContentViewerJPanel
@@ -50,8 +44,6 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
         // clear / reset the fields
         currentPage = 1;
         this.dataSource = null;
-        this.pattern = null;
-        patternDone = false;
         //currentPageLabel.setText(""); this line stops the module from initialising, my best guess is that it cals reset component before the component is initialised 
         //totalPageLabel.setText("");
         //setComponentsVisibility(false); // hides the components that not needed
@@ -66,7 +58,6 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        jButton1 = new javax.swing.JButton();
         HexText = new java.awt.TextArea();
         nextPageButton = new javax.swing.JButton();
         prevPageButton = new javax.swing.JButton();
@@ -75,13 +66,6 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
         totalPageLabel = new javax.swing.JLabel();
         jScrollPane1 = new javax.swing.JScrollPane();
         KeyArea = new javax.swing.JTextArea();
-
-        org.openide.awt.Mnemonics.setLocalizedText(jButton1, org.openide.util.NbBundle.getMessage(HexVisualiser.class, "HexVisualiser.jButton1.text")); // NOI18N
-        jButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton1ActionPerformed(evt);
-            }
-        });
 
         HexText.setEditable(false);
         HexText.setFont(new java.awt.Font("Monospaced", 0, 12)); // NOI18N
@@ -119,20 +103,18 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
             .addGroup(layout.createSequentialGroup()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
-                        .addContainerGap(309, Short.MAX_VALUE)
+                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(currentPageLabel)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(ofLabel)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(totalPageLabel)
-                        .addGap(18, 18, 18)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(prevPageButton)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(nextPageButton)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jButton1))
+                        .addComponent(nextPageButton))
                     .addGroup(layout.createSequentialGroup()
-                        .addComponent(HexText, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(HexText, javax.swing.GroupLayout.DEFAULT_SIZE, 532, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 234, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap())
@@ -142,7 +124,6 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jButton1)
                     .addComponent(nextPageButton)
                     .addComponent(prevPageButton)
                     .addComponent(currentPageLabel)
@@ -151,15 +132,10 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(HexText, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 396, Short.MAX_VALUE))
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 354, Short.MAX_VALUE))
                 .addContainerGap())
         );
     }// </editor-fold>//GEN-END:initComponents
-
-    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        ParsePattern patternObjects = new ParsePattern(this.pattern);//creates the list of objects to be iterated through
-        
-    }//GEN-LAST:event_jButton1ActionPerformed
 
     private void nextPageButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nextPageButtonActionPerformed
         setDataViewByPageNumber(currentPage + 1);
@@ -174,7 +150,6 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
     private java.awt.TextArea HexText;
     private javax.swing.JTextArea KeyArea;
     private javax.swing.JLabel currentPageLabel;
-    private javax.swing.JButton jButton1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JButton nextPageButton;
     private javax.swing.JLabel ofLabel;
@@ -204,27 +179,19 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
     public Component getComponent() {
         return this;
     }
-//Checks whether the given node is supported by the viewer. This will be used to enable or disable the tab for the viewer. use this for disabling module when pattern not held, create list for this to refer to held in component init
+//Checks whether the given node is supported by the viewer. This will be used enable for MBR records
     @Override
-    public boolean isSupported(Node node) {//a new if statement needs to be placed here which checks against the given file patterns 
-        //create a check based off of the node file type to see if an associated pattern exists, if not return false, also check against whatever the super class was doing
-        //if pattern exists, parse but not here, parsing should create a key to be displayed into the frame
+    public boolean isSupported(Node node) { 
         AbstractFile file = node.getLookup().lookup(AbstractFile.class);
         String extension = file.getNameExtension();
-        if ("jpg".equals(extension)){extension = "jpeg";}//unifies types to match pattern repository
-        try{
-            this.pattern = new File("src\\HexVisualiserModule\\patterns\\"+extension+".hexpat");
-            return super.isSupported(node) && pattern.exists();//returns if it passes the usual hex viewer tests and if the file exists
-        } //the pattern file, assigned during support check and then passed into parser method
-        catch(Exception e){
-        
-        }
+        try{return super.isSupported(node) && extension.equals("mbr");}
+        catch(Exception e){}
         return false;
     }
 //Checks whether the given viewer is preferred for the Node.
     @Override
     public int isPreferred(Node node) {
-        int a = 6;
+        int a = 8;
         return a;
         //the below code had some library import error and has been replaced by int 6, to be forgotten forever hopefully.
         //return ViewerPriority.viewerPriority.Level.getFlag();//gives the highest level of priority for the nodes this can run against
@@ -280,11 +247,13 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
         private final Content content;
         private final int newCurrentPage;
         private String errorText = "";
+//        private PatternWorker Pworker;
 
         HexWorker(Content content, long offset, int newCurrentPage) {//constructor
             this.content = content;
             this.offset = offset;
             this.newCurrentPage = newCurrentPage;
+            //this.Pworker = new HexVisualiser.PatternWorker(content);
         }
 
         @Override
@@ -305,7 +274,7 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
 
             if (errorText.isEmpty()) {
                 int showLength = bytesRead < PAGE_LENGTH ? bytesRead : (int) PAGE_LENGTH;
-                return DataConversion.byteArrayToHex(data, showLength, offset);//converts the bytes to hex by the amount of bytes, limited at the page length constant
+                return HexVisualiserModule.DataConversion.byteArrayToHex(data, showLength, offset);//converts the bytes to hex by the amount of bytes, limited at the page length constant
             } else {
                 return errorText;//returns the error if one was found rather than converting the byte array
             }
@@ -320,11 +289,8 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
             try {
                 String text = get();//retrieves results from background method
                 HexText.setText(text);//sets display in visualiser module
-                //below this, a swing worker needs to be made which can take the pattern file, parse through it and then display the highlighted patterns in the module
-                if(totalPages == 1){//currently only making it work if the entire files hex view can be seen
-                    Pworker = new HexVisualiser.PatternWorker(text, pattern);
-                    Pworker.execute();
-                }
+                //calls a new swingworker which will go through mbr record and match the bytes as well as fills out the key
+//                Pworker.execute();
                 //ColourCode(HexText, text, 9); // Color every 9 characters differently for this example, modular range will be used later based off of patern matching
                 // disable or enable the next button
                 if ((errorText.isEmpty()) && (newCurrentPage < totalPages)) {
@@ -349,54 +315,62 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
             }
         }
     }
-    private class PatternWorker extends SwingWorker<String, Void>{//text field string passed into pattern worker which should take the file, highlight the bytes and then display them back
-        //done using a swing worker to utilise threading and not hinder efficiency of the program
-        private final byte[] data = new byte[(int) PAGE_LENGTH];
-        private String errorText = "";
-        private String text = "";
-        private String pattern = null;
-        private String highlightedResult="";//temp
-        
-        @SuppressWarnings("deprecation")//sick and tired i genuinely dont care if its depreciated do the damn thing i imported you for
-        PatternWorker(String text, File pattern) {//constructor
-            this.text = text;
-            try {
-                this.pattern = FileUtils.readFileToString(pattern);
-            } catch (IOException ex) {
-                Exceptions.printStackTrace(ex);
-            }
-        } 
-        @Override
-        protected String doInBackground() throws Exception {
-            int bytesRead = 0;
-            try {
-                //in this section the pattern must parse or have been parsed, and the objects list must be made to colour the code 
-                    //ParsePattern(this.text); // read the data
-                    ImHexHighlighter highlighter = new ImHexHighlighter();
-                    highlightedResult = highlighter.highlight(this.text, this.pattern);
-                } 
-            catch (Exception e) {//errors add to the text with stops the worker from returning the result
-                    errorText = NbBundle.getMessage(this.getClass(), "DataContentViewerHex.setDataView.errorText");
-                }
-            if (errorText.isEmpty()) {
-                //
-                //int showLength = bytesRead < PAGE_LENGTH ? bytesRead : (int) PAGE_LENGTH;
-                //return DataConversion.byteArrayToHex(data, showLength, offset);//converts the bytes to hex by the amount of bytes, limited at the page length constant
-                return highlightedResult;
-            } else {
-                return errorText;//returns the error if one was found rather than converting the byte array
-            }
-            }
-
-        @Override
-        protected void done() {//sets the text once the worker is complete
-            try {
-                String text = get();//retrieves results from background method
-                HexText.setText(text);//sets display in visualiser module
-            } catch (Exception ignore) {
-            }
-        }
-    }
-    
 }
+//the pattern worker swing worker class is intended to be called from the hexworker when the hex is completeted to parse throough and use a pattern file  
+//    private class PatternWorker extends SwingWorker<String, Void>{//text field string passed into pattern worker which should take the file, highlight the bytes and then display them back
+//        //done using a swing worker to utilise threading and not hinder efficiency of the program
+//        private final byte[] data = new byte[(int) PAGE_LENGTH];
+//        private String errorText = "";
+//        private String highlightedResult="";//temp
+//        private final long offset;
+//        private final Content content;
+//        
+//        @SuppressWarnings("deprecation")//sick and tired i genuinely dont care if its depreciated do the damn thing i imported you for
+//        PatternWorker(Content content) {//constructor
+//            this.content = content;
+//            this.offset = offset;
+//        }
+//        @Override
+//        protected String doInBackground() throws Exception {
+//            int bytesRead = 0;
+//            try {
+//                //in this section the MBR file bytes must be highlighted in accordance with each section of the MBR static structure
+//                } 
+//            catch (Exception e) {//errors add to the text with stops the worker from returning the result
+//                    errorText = NbBundle.getMessage(this.getClass(), "DataContentViewerHex.setDataView.errorText");
+//                }
+//            if (errorText.isEmpty()) {
+//                //
+//                //int showLength = bytesRead < PAGE_LENGTH ? bytesRead : (int) PAGE_LENGTH;
+//                //return DataConversion.byteArrayToHex(data, showLength, offset);//converts the bytes to hex by the amount of bytes, limited at the page length constant
+//                return highlightedResult;
+//            } else {
+//                return errorText;//returns the error if one was found rather than converting the byte array
+//            }
+//            }
+//
+//        @Override
+//        protected void done() {//sets the text once the worker is complete
+//            try {
+//                String text = get();//retrieves results from background method
+//                HexText.setText(text);//sets display in visualiser module
+//            } catch (Exception ignore) {
+//            }
+//        }
+//    }
+//        public static String byteArrayToHex(byte[] array, int length, long arrayOffset, Font font) {
+//        return byteArrayToHex(array, length, arrayOffset);
+//    }
+
+    /**
+     * Return the hex-dump layout of the passed in byte array.
+     *
+     * @param array       Data to display
+     * @param length      Amount of data in array to display
+     * @param arrayOffset Offset of where data in array begins as part of a
+     *                    bigger file (used for arrayOffset column)
+     *
+     * @return
+     */
+
 
