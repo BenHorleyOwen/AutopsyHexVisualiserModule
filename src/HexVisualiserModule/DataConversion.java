@@ -15,12 +15,20 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+
+modified this to specifically return highlighted styled document based off of the MBR structure
  */
 package HexVisualiserModule;
 
+import java.awt.Color;
 import java.awt.Font;
 import java.util.Arrays;
-import java.util.Formatter;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DefaultStyledDocument;
+import javax.swing.text.Style;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyleContext;
+import javax.swing.text.StyledDocument;
 
 /**
  * Helper methods for converting data.
@@ -28,23 +36,8 @@ import java.util.Formatter;
 public class DataConversion {
 
     final private static char[] hexArray = "0123456789ABCDEF".toCharArray(); //NON-NLS
-
-    /**
-     * Return the hex-dump layout of the passed in byte array. Deprecated
-     * because we don't need font
-     *
-     * @param array       Data to display
-     * @param length      Amount of data in array to display
-     * @param arrayOffset Offset of where data in array begins as part of a
-     *                    bigger file (used for arrayOffset column)
-     * @param font        Font that will be used to display the text
-     *
-     * @return
-     */
-    @Deprecated
-    public static String byteArrayToHex(byte[] array, int length, long arrayOffset, Font font) {
-        return byteArrayToHex(array, length, arrayOffset);
-    }
+    //a style-context/attribute-set has to be made for each of the different parts of the mbr which would be highlighted, these sets will also be used for the key section
+    
 
     /**
      * Return the hex-dump layout of the passed in byte array.
@@ -56,12 +49,27 @@ public class DataConversion {
      *
      * @return
      */
-    public static String byteArrayToHex(byte[] array, int length, long arrayOffset) {
+    public static StyledDocument byteArrayToHex(byte[] array, int length, long arrayOffset) throws BadLocationException {//to modify this to highlight the text
         if (array == null) {
-            return "";
+            return null;
         } else {
-            StringBuilder outputStringBuilder = new StringBuilder();
+            StyledDocument doc = new DefaultStyledDocument();
+            Style defaultStyle = doc.getStyle(StyleContext.DEFAULT_STYLE);
+            StyleConstants.setFontFamily(defaultStyle, "Monospaced");
 
+            // Define styles for different MBR sections
+            Style defaultTextStyle = doc.addStyle("DefaultText", defaultStyle);
+            StyleConstants.setForeground(defaultTextStyle, Color.BLACK);
+
+            Style bootloaderStyle = doc.addStyle("Bootloader", defaultStyle);
+            StyleConstants.setBackground(bootloaderStyle, new Color(173, 216, 230)); // Light blue
+
+            Style partitionTableStyle = doc.addStyle("PartitionTable", defaultStyle);
+            StyleConstants.setBackground(partitionTableStyle, new Color(152, 251, 152)); // Pale green
+
+            Style bootSignatureStyle = doc.addStyle("BootSignature", defaultStyle);
+            StyleConstants.setBackground(bootSignatureStyle, new Color(255, 182, 193)); // Light pink
+            
             // loop through the file in 16-byte increments 
             for (int curOffset = 0; curOffset < length; curOffset += 16) {
                 // how many bytes are we displaying on this line
@@ -71,39 +79,33 @@ public class DataConversion {
                 }
 
                 // print the offset column
-                //outputStringBuilder.append("0x");
-                outputStringBuilder.append(String.format("0x%08x: ", arrayOffset + curOffset)); //NON-NLS
-                //outputStringBuilder.append(": ");
+                  //NON-NLS
 
                 // print the hex columns                
-                for (int i = 0; i < 16; i++) {
+                for (int i = 0; i < 16; i++) {//this is the loop which goes through the bytes one at a time, this is where the Jpane needs to have the attributes set based off of a counter
                     if (i < lineLen) {
-                        int v = array[curOffset + i] & 0xFF;
-                        outputStringBuilder.append(hexArray[v >>> 4]);
-                        outputStringBuilder.append(hexArray[v & 0x0F]);
+                        int v = array[curOffset + i] & 0xFF;// & 0xFF is a bitwise AND operation that converts the byte to an unsigned integer
+                        Style currentStyle = getStyleForLocation(doc, curOffset + i);
+                        //once curoffset + i aligns with ta specific value the document style should be changed and then reset after the bit has been appended to the document
+                        //create a variable which changes style based off of a switchcase for curoffset+i 
+                        doc.insertString(doc.getLength(),String.valueOf(hexArray[v >>> 4]), currentStyle);
+                        doc.insertString(doc.getLength(),String.valueOf(hexArray[v & 0x0F]), currentStyle);
                     } else {
-                        outputStringBuilder.append("  ");
+                        doc.insertString(doc.getLength(),String.valueOf("  "),null);
                     }
 
-                    // someday we'll offer the option of these two styles...
-                    if (true) {
-                        outputStringBuilder.append(" ");
-                        if (i % 4 == 3) {
-                            outputStringBuilder.append(" ");
-                        }
-                        if (i == 7) {
-                            outputStringBuilder.append(" ");
-                        }
-                    } // xxd style
-                    else {
-                        if (i % 2 == 1) {
-                            outputStringBuilder.append(" ");
-                        }
+                    // controls the seperation of bytes, previous author had unused code in here to be stripped out
+                    doc.insertString(doc.getLength(),String.valueOf("  "),null);
+                    if (i % 4 == 3) {
+                        doc.insertString(doc.getLength(),String.valueOf("  "),null);
+                    }
+                    if (i == 7) {
+                        doc.insertString(doc.getLength(),String.valueOf("  "),null);
                     }
                 }
 
-                outputStringBuilder.append("  ");
-
+                doc.insertString(doc.getLength(),String.valueOf("  "),null);
+                //this can be ignored for me purposes
                 // print the ascii columns
                 String ascii = new String(array, curOffset, lineLen, java.nio.charset.StandardCharsets.US_ASCII);
                 for (int i = 0; i < 16; i++) {
@@ -116,13 +118,12 @@ public class DataConversion {
                             c = '.';
                         }
                     }
-                    outputStringBuilder.append(c);
+                    doc.insertString(doc.getLength(),String.valueOf(c),null);
                 }
 
-                outputStringBuilder.append("\n");
+                doc.insertString(doc.getLength(),String.valueOf("\n"),null);
             }
-
-            return outputStringBuilder.toString();
+            return doc;
         }
     }
 
@@ -137,5 +138,22 @@ public class DataConversion {
             }
             return Arrays.toString(binary);
         }
+    }
+    
+    private static Style getStyleForLocation(StyledDocument doc, int location) {
+        // Typical MBR structure breakdown
+        // 0-446 bytes: Bootloader code
+        // 446-510 bytes: Partition table
+        // 510-511 bytes: Boot signature
+        
+        if (location < 446) {
+            return doc.getStyle("Bootloader");
+        } else if (location >= 446 && location < 510) {
+            return doc.getStyle("PartitionTable");
+        } else if (location >= 510 && location < 512) {
+            return doc.getStyle("BootSignature");
+        }
+        
+        return doc.getStyle("DefaultText");
     }
 }

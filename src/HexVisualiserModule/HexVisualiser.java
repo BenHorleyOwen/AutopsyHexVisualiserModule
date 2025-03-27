@@ -15,6 +15,7 @@ import org.sleuthkit.datamodel.Content;
 import java.io.File;
 import java.util.concurrent.ExecutionException;
 import javax.swing.SwingWorker;
+import javax.swing.text.StyledDocument;
 import org.sleuthkit.datamodel.TskCoreException;
 
 
@@ -31,6 +32,7 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
     private Content dataSource;
     final private static char[] hexArray = "0123456789ABCDEF".toCharArray(); //NON-NLS
     private HexWorker worker;
+    private StyledDocument doc;
 //UI
         /**
      * Creates new form ContentViewerJPanel
@@ -58,7 +60,6 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        HexText = new java.awt.TextArea();
         nextPageButton = new javax.swing.JButton();
         prevPageButton = new javax.swing.JButton();
         currentPageLabel = new javax.swing.JLabel();
@@ -66,9 +67,8 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
         totalPageLabel = new javax.swing.JLabel();
         jScrollPane1 = new javax.swing.JScrollPane();
         KeyArea = new javax.swing.JTextArea();
-
-        HexText.setEditable(false);
-        HexText.setFont(new java.awt.Font("Monospaced", 0, 12)); // NOI18N
+        jScrollPane2 = new javax.swing.JScrollPane();
+        HexText = new javax.swing.JTextPane();
 
         org.openide.awt.Mnemonics.setLocalizedText(nextPageButton, org.openide.util.NbBundle.getMessage(HexVisualiser.class, "HexVisualiser.nextPageButton.text")); // NOI18N
         nextPageButton.setActionCommand(org.openide.util.NbBundle.getMessage(HexVisualiser.class, "HexVisualiser.nextPageButton.actionCommand")); // NOI18N
@@ -96,14 +96,18 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
         KeyArea.setRows(5);
         jScrollPane1.setViewportView(KeyArea);
 
+        HexText.setFont(new java.awt.Font("Monospaced", 0, 12)); // NOI18N
+        jScrollPane2.setViewportView(HexText);
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
                         .addComponent(currentPageLabel)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(ofLabel)
@@ -113,8 +117,8 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
                         .addComponent(prevPageButton)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(nextPageButton))
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(HexText, javax.swing.GroupLayout.DEFAULT_SIZE, 532, Short.MAX_VALUE)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 530, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 234, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap())
@@ -131,8 +135,8 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
                     .addComponent(totalPageLabel))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(HexText, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 354, Short.MAX_VALUE))
+                    .addComponent(jScrollPane2)
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 362, Short.MAX_VALUE))
                 .addContainerGap())
         );
     }// </editor-fold>//GEN-END:initComponents
@@ -147,10 +151,11 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private java.awt.TextArea HexText;
+    private javax.swing.JTextPane HexText;
     private javax.swing.JTextArea KeyArea;
     private javax.swing.JLabel currentPageLabel;
     private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JButton nextPageButton;
     private javax.swing.JLabel ofLabel;
     private javax.swing.JButton prevPageButton;
@@ -274,7 +279,10 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
 
             if (errorText.isEmpty()) {
                 int showLength = bytesRead < PAGE_LENGTH ? bytesRead : (int) PAGE_LENGTH;
-                return HexVisualiserModule.DataConversion.byteArrayToHex(data, showLength, offset);//converts the bytes to hex by the amount of bytes, limited at the page length constant
+                try{
+                    doc = HexVisualiserModule.DataConversion.byteArrayToHex(data, showLength, offset);//converts the bytes to hex by the amount of bytes, limited at the page length constant
+                    return "success"; //swingworker needs to return a string and i do not care
+                } catch (Exception e){errorText = "wimpwomp back to the drawing board"; return errorText;}//one line because i hate my son and let him eat sand
             } else {
                 return errorText;//returns the error if one was found rather than converting the byte array
             }
@@ -287,8 +295,10 @@ public class HexVisualiser extends org.sleuthkit.autopsy.corecomponents.DataCont
             }
 
             try {
-                String text = get();//retrieves results from background method
-                HexText.setText(text);//sets display in visualiser module
+                if("success".equals(get())){//retrieves results from background method
+                    HexText.setDocument(doc);//sets display in visualiser module
+                    HexText.repaint();//this should update the text when its done
+                }
                 //calls a new swingworker which will go through mbr record and match the bytes as well as fills out the key
 //                Pworker.execute();
                 //ColourCode(HexText, text, 9); // Color every 9 characters differently for this example, modular range will be used later based off of patern matching
